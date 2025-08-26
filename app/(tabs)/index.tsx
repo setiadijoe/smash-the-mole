@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
+  Animated,
   Image,
   Modal,
   Pressable,
@@ -20,21 +21,33 @@ export default function App() {
   const [timeLeft, setTimeLeft] = useState<number>(0); // start at 0
   const [modalVisible, setModalVisible] = useState(false); // end-game modal
   const [readyModalVisible, setReadyModalVisible] = useState(true); // pre-game modal
+  const [scaleAnim] = useState(new Animated.Value(0)); // for mole pop-up
 
   // Randomly pick mole or mouse (dynamic speed)
   useEffect(() => {
     if (timeLeft === 0) return;
 
-    const intervalTime = timeLeft <= 10 ? 500 : 1000; // faster in last 10s
+    const intervalTime = timeLeft <= 10 ? 500 : 1000;
+
     const interval = setInterval(() => {
       const index = Math.floor(Math.random() * TOTAL_HOLES);
       const type = Math.random() > 0.3 ? "mole" : "mouse"; // 70% mole
       setActiveIndex(index);
       setActiveType(type);
+
+      if (type === "mole") {
+        scaleAnim.setValue(0);
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 5,
+          useNativeDriver: true,
+        }).start();
+      }
+
     }, intervalTime);
 
     return () => clearInterval(interval);
-  }, [timeLeft]);
+  }, [timeLeft, scaleAnim]);
 
   // Countdown timer
   useEffect(() => {
@@ -86,9 +99,9 @@ export default function App() {
                 activeOpacity={0.8}
               >
                 {id === activeIndex && activeType === "mole" && (
-                  <Image
+                  <Animated.Image
                     source={require("../../assets/images/mole.png")}
-                    style={styles.image}
+                    style={[styles.image, { transform: [{ scale: scaleAnim }] }]}
                   />
                 )}
                 {id === activeIndex && activeType === "mouse" && (
