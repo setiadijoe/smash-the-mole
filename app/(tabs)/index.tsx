@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { Image, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Image,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 const GRID_SIZE = 3; // 3x3 grid
 const TOTAL_HOLES = GRID_SIZE * GRID_SIZE;
@@ -9,37 +17,41 @@ export default function App() {
   const [score, setScore] = useState<number>(0);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [activeType, setActiveType] = useState<"mole" | "mouse" | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number>(30);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<number>(0); // start at 0
+  const [modalVisible, setModalVisible] = useState(false); // end-game modal
+  const [readyModalVisible, setReadyModalVisible] = useState(true); // pre-game modal
 
-  // randomly pick mole or mouse every second
+  // Randomly pick mole or mouse (dynamic speed)
   useEffect(() => {
     if (timeLeft === 0) return;
+
+    const intervalTime = timeLeft <= 10 ? 500 : 1000; // faster in last 10s
     const interval = setInterval(() => {
       const index = Math.floor(Math.random() * TOTAL_HOLES);
-      const type = Math.random() > 0.3 ? "mole" : "mouse"; // 70% mole, 30% mouse
+      const type = Math.random() > 0.3 ? "mole" : "mouse"; // 70% mole
       setActiveIndex(index);
       setActiveType(type);
-    }, 1000);
+    }, intervalTime);
+
     return () => clearInterval(interval);
   }, [timeLeft]);
 
-  // countdown timer
+  // Countdown timer
   useEffect(() => {
     if (timeLeft === 0) {
-      setModalVisible(true); // show modal when time is up
+      if (!readyModalVisible) setModalVisible(true); // show end modal only if game started
       return;
     }
     const timer = setInterval(() => setTimeLeft((t) => t - 1), 1000);
     return () => clearInterval(timer);
-  }, [timeLeft]);
+  }, [timeLeft, readyModalVisible]);
 
   const handleHit = (index: number) => {
     if (index === activeIndex && activeType === "mole") {
       setScore((prev) => prev + 1);
     }
     if (index === activeIndex && activeType === "mouse") {
-      setScore((prev) => (prev > 0 ? prev - 1 : 0)); // penalty if you hit mouse
+      setScore((prev) => prev - 1); // negative score allowed
     }
     setActiveIndex(null);
     setActiveType(null);
@@ -61,31 +73,6 @@ export default function App() {
         <Text style={styles.counterText}>Score: {score}</Text>
         <Text style={styles.counterText}>⏱ {timeLeft}s</Text>
       </View>
-
-      {/* Game Over Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Game Over!</Text>
-            <Text style={styles.modalScore}>Final Score: {score}</Text>
-            <Pressable
-              style={styles.button}
-              onPress={() => {
-                setScore(0);
-                setTimeLeft(30);
-                setModalVisible(false);
-              }}
-            >
-              <Text style={styles.buttonText}>Play Again</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
 
       {/* Grid */}
       <View style={styles.grid}>
@@ -116,16 +103,75 @@ export default function App() {
         ))}
       </View>
 
-      {timeLeft === 0 && (
-        <Text style={styles.over}>Game Over! Final Score: {score}</Text>
-      )}
+      {/* Pre-Game Ready Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={readyModalVisible}
+        onRequestClose={() => {}}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={[styles.modalTitle, { textAlign: "center", fontWeight: "bold" }]}>
+              Are you ready to smash some moles? 🐹
+            </Text>
+            <Pressable
+              style={styles.button}
+              onPress={() => {
+                setReadyModalVisible(false);
+                setTimeLeft(30); // start the game
+              }}
+            >
+              <Text style={styles.buttonText}>Start Game</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* End-Game Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            {score > 0 && (
+              <Text style={[styles.modalTitle, { textAlign: "center", fontWeight: "bold" }]}>
+                🎉 Awesome! You smashed {score} {score === 1 ? "mole" : "moles"}!
+              </Text>
+            )}
+            {score === 0 && (
+              <Text style={[styles.modalTitle, { textAlign: "center" }]}>
+                🤔 Hmm… You didn’t smash any moles. Try again?
+              </Text>
+            )}
+            {score < 0 && (
+              <Text style={[styles.modalTitle, { textAlign: "center", fontWeight: "bold" }]}>
+                😱 Whoa! You hit the wrong targets! Let’s focus on the moles!
+              </Text>
+            )}
+
+            <Pressable
+              style={styles.button}
+              onPress={() => {
+                setScore(0);
+                setTimeLeft(30);
+                setModalVisible(false);
+              }}
+            >
+              <Text style={styles.buttonText}>Play Again</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center", alignItems: "center" },
-  title: { fontSize: 28, fontWeight: "bold", marginBottom: 20 },
 
   counterBox: {
     flexDirection: "row",
@@ -141,59 +187,57 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
   },
+
   grid: {
-    // width adjusts automatically
+    width: 300,
+    height: 300,
   },
   row: {
     flexDirection: "row",
+    flex: 1, // evenly divide height among rows
   },
   hole: {
-    flexBasis: `${100 / GRID_SIZE}%`, // each hole is 1/3 of the row
-    aspectRatio: 1, // makes it square
-    margin: 1,
+    flex: 1,
+    aspectRatio: 1, // square
+    margin: 2,
     backgroundColor: "#444",
     borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
   },
   image: {
-    width: 80,
-    height: 80,
+    width: "80%",
+    height: "80%",
     resizeMode: "contain",
   },
-  over: { fontSize: 24, fontWeight: "bold", marginTop: 20 },
-    // Modal Styles
-    modalContainer: {
-      flex: 1,
-      justifyContent: "center",
-      alignItems: "center",
-      backgroundColor: "rgba(0,0,0,0.5)",
-    },
-    modalContent: {
-      width: 250,
-      padding: 20,
-      backgroundColor: "white",
-      borderRadius: 10,
-      alignItems: "center",
-    },
-    modalTitle: {
-      fontSize: 24,
-      fontWeight: "bold",
-      marginBottom: 10,
-    },
-    modalScore: {
-      fontSize: 20,
-      marginBottom: 20,
-    },
-    button: {
-      backgroundColor: "black",
-      paddingVertical: 10,
-      paddingHorizontal: 20,
-      borderRadius: 5,
-    },
-    buttonText: {
-      color: "white",
-      fontWeight: "bold",
-      fontSize: 16,
-    },
+
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalContent: {
+    width: 250,
+    padding: 20,
+    backgroundColor: "white",
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 20,
+    marginBottom: 20,
+  },
+  button: {
+    backgroundColor: "black",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+  },
+  buttonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
 });
