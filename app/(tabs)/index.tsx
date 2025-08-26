@@ -1,7 +1,7 @@
+import { useAudioPlayer } from "expo-audio";
 import React, { useEffect, useState } from "react";
 import {
   Animated,
-  Image,
   Modal,
   Pressable,
   StyleSheet,
@@ -10,20 +10,32 @@ import {
   View,
 } from "react-native";
 
-const GRID_SIZE = 3; // 3x3 grid
+const GRID_SIZE = 3;
 const TOTAL_HOLES = GRID_SIZE * GRID_SIZE;
 const HOLE_IDS = Array.from({ length: TOTAL_HOLES }, (_, i) => i);
 
 export default function App() {
-  const [score, setScore] = useState<number>(0);
+  const [score, setScore] = useState(0);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [activeType, setActiveType] = useState<"mole" | "mouse" | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number>(0); // start at 0
-  const [modalVisible, setModalVisible] = useState(false); // end-game modal
-  const [readyModalVisible, setReadyModalVisible] = useState(true); // pre-game modal
-  const [scaleAnim] = useState(new Animated.Value(0)); // for mole pop-up
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [readyModalVisible, setReadyModalVisible] = useState(true);
 
-  // Randomly pick mole or mouse (dynamic speed)
+  const [scaleAnim] = useState(new Animated.Value(0)); // Mole pop-up
+  const [hitScale] = useState(new Animated.Value(1));   // Hit animation
+
+  // Initialize audio players
+  const moleHitPlayer = useAudioPlayer(require("../../assets/sounds/hit.mp3"));
+  const mouseSlapPlayer = useAudioPlayer(require("../../assets/sounds/slap.mp3"));
+
+  // Play a sound
+  const playSound = (player: ReturnType<typeof useAudioPlayer>) => {
+    player.seekTo(0); // Reset to start
+    player.play();
+  };
+
+  // Randomly pick mole or mouse
   useEffect(() => {
     if (timeLeft === 0) return;
 
@@ -31,7 +43,7 @@ export default function App() {
 
     const interval = setInterval(() => {
       const index = Math.floor(Math.random() * TOTAL_HOLES);
-      const type = Math.random() > 0.3 ? "mole" : "mouse"; // 70% mole
+      const type = Math.random() > 0.3 ? "mole" : "mouse";
       setActiveIndex(index);
       setActiveType(type);
 
@@ -43,7 +55,6 @@ export default function App() {
           useNativeDriver: true,
         }).start();
       }
-
     }, intervalTime);
 
     return () => clearInterval(interval);
@@ -52,25 +63,35 @@ export default function App() {
   // Countdown timer
   useEffect(() => {
     if (timeLeft === 0) {
-      if (!readyModalVisible) setModalVisible(true); // show end modal only if game started
+      if (!readyModalVisible) setModalVisible(true);
       return;
     }
     const timer = setInterval(() => setTimeLeft((t) => t - 1), 1000);
     return () => clearInterval(timer);
   }, [timeLeft, readyModalVisible]);
 
+  // Handle hit
   const handleHit = (index: number) => {
-    if (index === activeIndex && activeType === "mole") {
+    if (index !== activeIndex) return;
+
+    Animated.sequence([
+      Animated.timing(hitScale, { toValue: 0.5, duration: 100, useNativeDriver: true }),
+      Animated.timing(hitScale, { toValue: 1, duration: 100, useNativeDriver: true }),
+    ]).start();
+
+    if (activeType === "mole") {
       setScore((prev) => prev + 1);
+      playSound(moleHitPlayer);
+    } else if (activeType === "mouse") {
+      setScore((prev) => prev - 1);
+      playSound(mouseSlapPlayer);
     }
-    if (index === activeIndex && activeType === "mouse") {
-      setScore((prev) => prev - 1); // negative score allowed
-    }
+
     setActiveIndex(null);
     setActiveType(null);
   };
 
-  // Create rows for 3x3 grid
+  // Rows for grid
   const getRows = () => {
     const rows: number[][] = [];
     for (let i = 0; i < TOTAL_HOLES; i += GRID_SIZE) {
@@ -105,9 +126,9 @@ export default function App() {
                   />
                 )}
                 {id === activeIndex && activeType === "mouse" && (
-                  <Image
+                  <Animated.Image
                     source={require("../../assets/images/mouse.png")}
-                    style={styles.image}
+                    style={[styles.image, { transform: [{ scale: hitScale }] }]}
                   />
                 )}
               </TouchableOpacity>
@@ -116,7 +137,7 @@ export default function App() {
         ))}
       </View>
 
-      {/* Pre-Game Ready Modal */}
+      {/* Pre-Game Modal */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -125,14 +146,14 @@ export default function App() {
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={[styles.modalTitle, { textAlign: "center", fontWeight: "bold" }]}>
+            <Text style={[styles.modalTitle, { fontWeight: "bold", textAlign: "center" }]}>
               Are you ready to smash some moles? 🐹
             </Text>
             <Pressable
               style={styles.button}
               onPress={() => {
                 setReadyModalVisible(false);
-                setTimeLeft(30); // start the game
+                setTimeLeft(30);
               }}
             >
               <Text style={styles.buttonText}>Start Game</Text>
@@ -151,7 +172,7 @@ export default function App() {
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             {score > 0 && (
-              <Text style={[styles.modalTitle, { textAlign: "center", fontWeight: "bold" }]}>
+              <Text style={[styles.modalTitle, { fontWeight: "bold", textAlign: "center" }]}>
                 🎉 Awesome! You smashed {score} {score === 1 ? "mole" : "moles"}!
               </Text>
             )}
@@ -161,11 +182,10 @@ export default function App() {
               </Text>
             )}
             {score < 0 && (
-              <Text style={[styles.modalTitle, { textAlign: "center", fontWeight: "bold" }]}>
-                😱 Whoa! You hit the wrong targets! Let’s focus on the moles!
+              <Text style={[styles.modalTitle, { fontWeight: "bold", textAlign: "center" }]}>
+                😱 Whoa! You hit the wrong targets! Focus on the moles!
               </Text>
             )}
-
             <Pressable
               style={styles.button}
               onPress={() => {
@@ -207,11 +227,11 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: "row",
-    flex: 1, // evenly divide height among rows
+    flex: 1,
   },
   hole: {
     flex: 1,
-    aspectRatio: 1, // square
+    aspectRatio: 1,
     margin: 2,
     backgroundColor: "#444",
     borderRadius: 10,
@@ -224,7 +244,7 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
   },
 
-  // Modal Styles
+  // Modal
   modalContainer: {
     flex: 1,
     justifyContent: "center",
