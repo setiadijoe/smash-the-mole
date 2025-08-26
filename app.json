@@ -1,43 +1,46 @@
 {
   "expo": {
-    "name": "smash-the-mole",
+    "name": "SmashTheMole",
     "slug": "smash-the-mole",
     "version": "1.0.0",
+    "sdkVersion": "54.0.0",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "entryPoint": "node_modules/expo/AppEntry.js",
+    "updates": {
+      "enabled": true
+    },
+    "developmentClient": false,
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "smashthemole",
-    "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.setiadijoe.smashthemole"
     },
     "android": {
+      "package": "com.setiadijoe.smashthemole",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true
+      }
     },
     "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/icon.png"
     },
-    "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
-        }
-      ],
-      "expo-audio"
-    ],
-    "experiments": {
-      "typedRoutes": true
+    "extra": {
+      "eas": {
+        "projectId": "7ee58c9f-57a7-4133-a74d-59cb5796ec94"
+      }
     }
   }
 }
